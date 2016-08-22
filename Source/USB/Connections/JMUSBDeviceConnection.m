@@ -25,7 +25,6 @@
 #import "JMPathSocket.h"
 #import "JMSocketConnection.h"
 #import "JMUSBMuxEncoder.h"
-#import "JMUSBMuxDecoder.h"
 
 static NSString* const JMServicePath = @"/var/run/usbmuxd";
 
@@ -38,7 +37,6 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 	@private
 	
 	JMSocketConnection* _connection;
-	JMUSBMuxDecoder* 	_decoder;
 	
 	BOOL 				_tcpMode;
 }
@@ -55,7 +53,12 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 	return [self initWithDevice:[JMUSBDevice invalidUSBDevice] andPort:port];
 }
 
--(instancetype)initWithDevice:(JMUSBDevice *)device andPort:(uint32_t)port
+-(instancetype)initWithDevice:(JMUSBDevice *)device andPort:(uint32_t)port {
+	
+	return [self initWithDevice:device andPort:port decoder:[[JMUSBMuxDecoder alloc]init]];
+}
+
+-(instancetype)initWithDevice:(JMUSBDevice *)device andPort:(uint32_t)port decoder:(nonnull JMUSBMuxDecoder *)decoder
 {
 	self = [super initWithPort:port];
 	
@@ -63,7 +66,7 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 	{
 		_device = device;
 		
-		_decoder = [[JMUSBMuxDecoder alloc]init];
+		_decoder = decoder;
 		_decoder.delegate = self;
 		
 		_tcpMode = NO;
@@ -77,46 +80,33 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 	return self;
 }
 
--(BOOL)connect
-{
-	if (self.state != JMDeviceConnectionStateDisconnected)
-	{
-		return NO;
-	}
-
-	self.state = JMDeviceConnectionStateConnecting;
-	
-	return [_connection connect];
-}
-
--(BOOL)disconnect
+-(void)connect
 {
 	if (self.state == JMDeviceConnectionStateDisconnected)
 	{
-		return YES;
+		self.state = JMDeviceConnectionStateConnecting;
+		
+		[_connection connect];
 	}
-	
-	[_connection disconnect];
-
-	_tcpMode = NO;
-	self.state = JMDeviceConnectionStateDisconnected;
-	
-	return YES;
 }
 
--(BOOL)writeData:(NSData *)data
+-(void)disconnect
 {
-	if (self.state != JMDeviceConnectionStateConnected)
+	if (self.state != JMDeviceConnectionStateDisconnected)
 	{
-		return NO;
+		[_connection disconnect];
+		
+		_tcpMode = NO;
+		self.state = JMDeviceConnectionStateDisconnected;
 	}
-	
-	if (_tcpMode)
-	{
-		return [_connection writeData:data];
-	}
+}
 
-	return NO;
+-(void)writeData:(NSData *)data
+{
+	if (self.state == JMDeviceConnectionStateConnected && _tcpMode)
+	{
+		[_connection writeData:data];
+	}
 }
 
 -(BOOL)isEqual:(id)object {
@@ -136,19 +126,17 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 
 -(void)setState:(JMDeviceConnectionState)state
 {
-	if (_state == state)
+	if (_state != state)
 	{
-		return;
-	}
-
-	_state = state;
-	
-	if ([self.delegate respondsToSelector:@selector(connection:didChangeState:)])
-	{
-		dispatch_async(dispatch_get_main_queue(),
-		^{
-			[self.delegate connection:self didChangeState:_state];
-		});
+		_state = state;
+		
+		if ([self.delegate respondsToSelector:@selector(connection:didChangeState:)])
+		{
+			dispatch_async(dispatch_get_main_queue(),
+						   ^{
+							   [self.delegate connection:self didChangeState:_state];
+						   });
+		}
 	}
 }
 
@@ -219,11 +207,11 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 				[self.delegate connection:self didReceiveData:data];
 			});
 		}
-		
-		return;
 	}
-	
-	[_decoder processData:data];
+	else {
+		
+		[_decoder processData:data];
+	}
 }
 
 @end

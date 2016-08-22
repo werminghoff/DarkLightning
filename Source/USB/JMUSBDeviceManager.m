@@ -25,8 +25,8 @@
 
 #import "JMPathSocket.h"
 #import "JMSocketConnection.h"
-#import "JMUSBMuxDecoder.h"
 #import "JMUSBMuxEncoder.h"
+#import "NSDictionary+Immutable.h"
 
 static NSString* const JMServicePath = @"/var/run/usbmuxd";
 
@@ -39,21 +39,25 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 	@private
 	
 	JMSocketConnection* _connection;
-	JMUSBMuxDecoder* _decoder;
 
-	NSMutableDictionary<NSNumber*, JMUSBDevice*>* _devices;
+	NSDictionary<NSNumber*, JMUSBDevice*>* _devices;
 }
 
--(instancetype)init
+-(instancetype)init {
+	
+	return [self initWithDecoder:[[JMUSBMuxDecoder alloc]init] devices:@{}];
+}
+
+-(instancetype)initWithDecoder:(JMUSBMuxDecoder *)decoder devices:(nonnull NSDictionary<NSNumber*, JMUSBDevice*>*)devices
 {
 	self = [super init];
 	
 	if (self)
 	{
-		_decoder = [[JMUSBMuxDecoder alloc]init];
+		_decoder = decoder;
 		_decoder.delegate = self;
 
-		_devices = [NSMutableDictionary dictionary];
+		_devices = devices;
 		
 		_state = JMUSBDeviceManagerStateDisconnected;
 	}
@@ -61,11 +65,11 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 	return self;
 }
 
-- (BOOL)start
+- (void)start
 {
 	if (self.state != JMUSBDeviceManagerStateDisconnected)
 	{
-		return NO;
+		return;
 	}
 	
 	self.state = JMUSBDeviceManagerStateConnecting;
@@ -75,23 +79,19 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 	_connection.delegate = self;
 
 	[_connection connect];
-	
-	return YES;
 }
 
--(BOOL)stop
+-(void)stop
 {
 	if (self.state == JMSocketConnectionStateDisconnected)
 	{
-		return YES;
+		return;
 	}
 	
 	[_connection disconnect];
 	_connection = nil;
 	
 	self.state = JMUSBDeviceManagerStateDisconnected;
-	
-	return YES;
 }
 
 -(NSArray<JMUSBDevice*>*)deviceWithSerialNumber:(NSString *)serialNumber
@@ -166,7 +166,7 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 
 -(void)decoder:(JMUSBMuxDecoder *)decoder didDecodeAttachPacket:(JMUSBDevice *)device
 {
-	_devices[device.deviceID] = device;
+	_devices = [_devices dictionaryBySettingValue:device forKey:device.deviceID];
 	dispatch_async(dispatch_get_main_queue(),
 	^{
 		[_delegate deviceManager:self deviceDidAttach:device];
@@ -183,7 +183,7 @@ static NSString* const JMServicePath = @"/var/run/usbmuxd";
 		return;
 	}
 
-	[_devices removeObjectForKey:deviceID];
+	_devices = [_devices dictionaryByRemovingKey:deviceID];
 	dispatch_async(dispatch_get_main_queue(),
 	^{
 		[_delegate deviceManager:self deviceDidDetach:device];

@@ -23,6 +23,7 @@
 
 #import <dispatch/dispatch.h>
 #import "JMUSBDevice.h"
+#import "JMUSBMuxDecoder.h"
 
 /**
  * These constants indicate the state of a given JMUSBDeviceManager.
@@ -85,6 +86,8 @@ typedef NS_ENUM(NSUInteger, JMUSBDeviceManagerState)
  */
 @interface JMUSBDeviceManager : NSObject
 
+@property (nonnull, nonatomic, strong, readonly) JMUSBMuxDecoder* decoder;
+
 /**
  *  The current state of the device manager. Default value is JMUSBDeviceManagerStateDisconnected.
  */
@@ -100,6 +103,8 @@ typedef NS_ENUM(NSUInteger, JMUSBDeviceManagerState)
  */
 @property (nullable, nonatomic, weak) id<JMUSBDeviceManagerDelegate> delegate;
 
+-(nonnull instancetype)initWithDecoder:(nonnull JMUSBMuxDecoder*)decoder devices:(nonnull NSDictionary<NSNumber*, JMUSBDevice*>*)devices NS_DESIGNATED_INITIALIZER;
+
 ///----------------------------
 /// @name Listening for devices
 ///----------------------------
@@ -107,12 +112,12 @@ typedef NS_ENUM(NSUInteger, JMUSBDeviceManagerState)
 /**
  *  Start listening for attach and detach events.
  */
-- (BOOL) start;
+- (void) start;
 
 /**
  *  Stop listening for attach and detach events.
  */
-- (BOOL) stop;
+- (void) stop;
 
 ///------------------------
 /// @name Device Management
