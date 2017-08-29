@@ -2,6 +2,24 @@
 
 `DarkLightning` adheres to [Semantic Versioning](http://semver.org/).
 
+## 2.0.0-alpha1
+
+### What's new
+
+* Completely rewritten in Swift
+* All new OOP interface with protocols
+
+### Known issues
+
+* No Objective-C support yet
+* No iOS / tvOS simulator support yet
+
+## 1.0.3
+
+### Bugfix
+
+* Fixed a bug that prevented DarkLightning from discovering and connecting USB devices on OSX ([#39](https://github.com/jensmeder/DarkLightning/issues/39))
+
 ## 1.0.2
 
 ### Bugfix
